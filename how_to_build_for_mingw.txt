@@ -1,3 +1,10 @@
+These instruction are outdated.
+
+Please see the BUILD_WINDOWS.md file inside the IBMulator repository for a much
+simpler build procedure using MSYS2.
+
+=============================================================================== 
+
 Download FreeType. Get the Binaries package:
 	http://gnuwin32.sourceforge.net/packages/freetype.htm
 Direct link:
@@ -15,10 +22,7 @@ Go into the Build folder and run cmake. However, notice:
 
 compiling from the DOS prompt, and the second one for compiling from a MinGW shell.
 
-cmake -G "MinGW Makefiles" -D CMAKE_MAKE_PROGRAM="c:\MinGW\bin\mingw32-make.exe" -D FREETYPE_INCLUDE_DIRS="..\Dependencies\freetype\include;..\Dependencies\freetype\include
-
-\freetype2" -D FREETYPE_LIBRARY="..\Dependencies\freetype\lib\libfreetype.dll.a" .
-
+cmake -G "MinGW Makefiles" -D CMAKE_MAKE_PROGRAM="c:\MinGW\bin\mingw32-make.exe" -D FREETYPE_INCLUDE_DIRS="..\Dependencies\freetype\include;..\Dependencies\freetype\include\freetype2" -D FREETYPE_LIBRARY="..\Dependencies\freetype\lib\libfreetype.dll.a" .
 
 Once cmake completes successfully, run make
 
