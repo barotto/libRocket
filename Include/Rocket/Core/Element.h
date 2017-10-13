@@ -389,6 +389,8 @@ public:
 	/// @return The inner height of the element, usually including padding but not the horizontal scrollbar height, border or margin.
 	float GetClientHeight();
 
+	inline Vector2f GetContentBox() const { return content_box; }
+
 	/// Returns the element from which all offset calculations are currently computed.
 	/// @return This element's offset parent.
 	Element* GetOffsetParent();

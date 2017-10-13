@@ -210,7 +210,17 @@ LayoutBlockBox::CloseResult LayoutBlockBox::Close()
 			Vector2f content_box(0, 0);
 
 			for (size_t i = 0; i < block_boxes.size(); i++)
-				content_box.x = Math::Max(content_box.x, block_boxes[i]->GetBox().GetSize(Box::MARGIN).x);
+			{
+				Element* box_element = block_boxes[i]->element;
+				float x = block_boxes[i]->GetBox().GetSize(Box::MARGIN).x;
+				
+				// When element is positioned relative then include also this value into the content size
+				if (box_element != NULL && box_element->GetPosition() == POSITION_RELATIVE)
+				{
+					x += box_element->GetOffsetLeft();
+				}
+				content_box.x = Math::Max(content_box.x, x);
+			}
 
 			// Check how big our floated area is.
 			Vector2f space_box = space->GetDimensions();
@@ -235,12 +245,24 @@ LayoutBlockBox::CloseResult LayoutBlockBox::Close()
 			content_box.x += (box.GetEdge(Box::PADDING, Box::LEFT) + box.GetEdge(Box::PADDING, Box::RIGHT));
 
 			content_box.y = box_cursor;
+
+			for (size_t i = 0; i < block_boxes.size(); i++)
+			{
+				Element* box_element = block_boxes[i]->element;
+				
+				// When element is positioned relative then include also this value into the content size
+				if (box_element != NULL && box_element->GetPosition() == POSITION_RELATIVE)
+				{
+					float y = block_boxes[i]->GetBox().GetSize(Box::MARGIN).y;
+					content_box.y = Math::Max(content_box.y, box_element->GetOffsetTop()+y);
+				}
+			}
+
 			content_box.y = Math::Max(content_box.y, space_box.y);
 			if (!CatchVerticalOverflow(content_box.y))
 				return LAYOUT_SELF;
 
 			content_box.y += (box.GetEdge(Box::PADDING, Box::TOP) + box.GetEdge(Box::PADDING, Box::BOTTOM));
-
 			element->SetBox(box);
 			element->SetContentBox(space->GetOffset(), content_box);
 
@@ -457,6 +479,8 @@ void LayoutBlockBox::CloseAbsoluteElements()
 		// The size of the containing box, including the padding. This is used to resolve relative offsets.
 		Vector2f containing_block = GetBox().GetSize(Box::PADDING);
 
+		Vector2f content_block = element->GetContentBox();
+		
 		for (size_t i = 0; i < absolute_elements.size(); i++)
 		{
 			Element* absolute_element = absolute_elements[i].element;
@@ -475,6 +499,36 @@ void LayoutBlockBox::CloseAbsoluteElements()
 
 			// Set the offset of the element; the element itself will take care of any RCSS-defined positional offsets.
 			absolute_element->SetOffset(absolute_position, element);
+			
+			// Update the content block size so that it also covers the absolute positioned elements
+			absolute_position.y = absolute_element->GetOffsetTop();
+			absolute_position.y += absolute_element->GetBox().GetSize().y;
+			
+			content_block.y = Math::Max(content_block.y, absolute_position.y);
+
+			absolute_position.x = absolute_element->GetOffsetLeft();
+			absolute_position.x += absolute_element->GetBox().GetSize().x;
+			
+			content_block.x = Math::Max(content_block.x, absolute_position.x);
+		}
+		
+		if (content_block != element->GetContentBox())
+		{
+			// Content box size changed due absolute positioned elements
+			element->SetContentBox(space->GetOffset(), content_block);
+		    
+			// Update scrollbar visibility
+			if(overflow_x_property == OVERFLOW_AUTO && content_block.x > GetBox().GetSize().x)
+			{
+				element->GetElementScroll()->EnableScrollbar(ElementScroll::HORIZONTAL, GetBox().GetSize().x);
+			}
+			if(overflow_y_property == OVERFLOW_AUTO && content_block.y > GetBox().GetSize().y)
+			{
+				element->GetElementScroll()->EnableScrollbar(ElementScroll::VERTICAL, GetBox().GetSize().y);
+			}
+
+			// Format any scrollbars which were enabled on this element.
+			element->GetElementScroll()->FormatScrollbars();
 		}
 
 		absolute_elements.clear();
