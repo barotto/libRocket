@@ -14,7 +14,7 @@
  *
  * The above copyright notice and this permission notice shall be included in
  * all copies or substantial portions of the Software.
- * 
+ *
  * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
  * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
  * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
@@ -121,7 +121,7 @@ void Context::SetDimensions(const Vector2i& _dimensions)
 				document->UpdatePosition();
 			}
 		}
-		
+
 		clip_dimensions = dimensions;
 	}
 }
@@ -217,7 +217,7 @@ ElementDocument* Context::CreateDocument(const String& tag)
 
 // Load a document into the context.
 ElementDocument* Context::LoadDocument(const String& document_path)
-{	
+{
 	// Open the stream based on the file path
 	StreamFile* stream = new StreamFile();
 	if (!stream->Open(document_path))
@@ -315,6 +315,17 @@ void Context::UnloadDocument(ElementDocument* _document)
 		active = NULL;
 	}
 
+	// Clear other pointers to elements whose owner was deleted
+	if (drag && drag->GetOwnerDocument() == document)
+	{
+		drag = NULL;
+	}
+
+	if (drag_hover && drag_hover->GetOwnerDocument() == document)
+	{
+		drag_hover = NULL;
+	}
+
 	// Rebuild the hover state.
 	UpdateHoverChain(Dictionary(), Dictionary(), mouse_position);
 }
@@ -330,6 +341,15 @@ void Context::UnloadAllDocuments()
 	// before we exit this method.
 	root->active_children.clear();
 	root->ReleaseElements(root->deleted_children);
+
+	// Also need to clear containers that keep ElementReference pointers to elements belonging to removed documents,
+	// essentially preventing them from being released in correct order (before context destroys render interface,
+	// which causes access violation for elements that try to release geometry after context is released)
+	// I don't bother checking what's in chain because we unload all documents, so there shouldn't be any element
+	// that remains here (could check for element->owner == NULL, but that's probably guaranteed)
+	active_chain.clear();
+	hover_chain.clear();
+	drag_hover_chain.clear();
 }
 
 // Adds a previously-loaded cursor document as a mouse cursor within this context.
@@ -630,18 +650,18 @@ void Context::ProcessMouseMove(int x, int y, int key_modifier_state)
 		}
 	}
 }
-	
+
 static Element* FindFocusElement(Element* element)
 {
 	ElementDocument* owner_document = element->GetOwnerDocument();
 	if (!owner_document || owner_document->GetProperty< int >(FOCUS) == FOCUS_NONE)
 		return NULL;
-	
+
 	while (element && element->GetProperty< int >(FOCUS) == FOCUS_NONE)
 	{
 		element = element->GetParentNode();
 	}
-	
+
 	return element;
 }
 
@@ -655,7 +675,7 @@ void Context::ProcessMouseButtonDown(int button_index, int key_modifier_state)
 	if (button_index == 0)
 	{
 		Element* new_focus = *hover;
-		
+
 		// Set the currently hovered element to focus if it isn't already the focus.
 		if (hover)
 		{
@@ -671,7 +691,7 @@ void Context::ProcessMouseButtonDown(int button_index, int key_modifier_state)
 		active = new_focus;
 
 		bool propogate = true;
-		
+
 		// Call 'onmousedown' on every item in the hover chain, and copy the hover chain to the active chain.
 		if (hover)
 			propogate = hover->DispatchEvent(MOUSEDOWN, parameters, true);
@@ -694,7 +714,7 @@ void Context::ProcessMouseButtonDown(int button_index, int key_modifier_state)
 			{
 				last_click_element = *active;
 				last_click_time = click_time;
-			
+
 			}
 		}
 
@@ -810,19 +830,19 @@ RenderInterface* Context::GetRenderInterface() const
 {
 	return render_interface;
 }
-	
+
 // Gets the current clipping region for the render traversal
 bool Context::GetActiveClipRegion(Vector2i& origin, Vector2i& dimensions) const
 {
 	if (clip_dimensions.x < 0 || clip_dimensions.y < 0)
 		return false;
-	
+
 	origin = clip_origin;
 	dimensions = clip_dimensions;
-	
+
 	return true;
 }
-	
+
 // Sets the current clipping region for the render traversal
 void Context::SetActiveClipRegion(const Vector2i& origin, const Vector2i& dimensions)
 {
@@ -835,7 +855,7 @@ void Context::SetInstancer(ContextInstancer* _instancer)
 {
 	ROCKET_ASSERT(instancer == NULL);
 	instancer = _instancer;
-	instancer->AddReference();	
+	instancer->AddReference();
 }
 
 // Internal callback for when an element is removed from the hierarchy.
@@ -1194,7 +1214,7 @@ void Context::GenerateKeyModifierEventParameters(Dictionary& parameters, int key
 
 // Builds the parameters for a drag event.
 void Context::GenerateDragEventParameters(Dictionary& parameters)
-{	
+{
 	parameters.Set("drag_element", (void*) *drag);
 }
 
